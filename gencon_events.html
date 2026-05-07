@@ -7,7 +7,6 @@
   <link href="main.css" rel="stylesheet" type="text/css">
 </head>
 <body class="dark">
-
 <header>
   <div class="logo">
     <h1>Gen Con 2026</h1>
@@ -35,13 +34,13 @@
 
     <div class="section-label">Max Cost</div>
     <div class="cost-row">
-      <input id="costSlider" max="504" min="0" oninput="onCost(this.value)" step="2" type="range" value="504"/>
+      <input id="costSlider" max="1000" min="0" oninput="onCost(this.value)" step="5" type="range" value="1000"/>
       <span class="cost-val" id="costLabel">Any</span>
     </div>
 
     <div class="section-label" style="margin-top:16px">Availability</div>
     <div class="cost-row">
-      <input id="ticketsSlider" max="100" min="0" oninput="onTickets(this.value)" step="1" type="range"
+      <input id="ticketsSlider" max="1000" min="0" oninput="onTickets(this.value)" step="1" type="range"
              value="0"/>
       <span class="cost-val" id="ticketsLabel">Any</span>
     </div>
@@ -56,44 +55,48 @@
 
   <main>
     <div class="search-wrap">
-      <input id="searchBox" oninput="debounceFilter()" placeholder="Search by title, game system, GM, description…"
-             type="search"/>
+      <input id="searchBox" oninput="debounceFilter()"
+             placeholder="Search by title, game system, GM, description…" type="search"/>
     </div>
+
     <div class="sort-row">
       <label>Sort by</label>
-      <select id="sortBy" onchange="applyFilter()">
+      <select id="sortBy" onchange="onDropdownSort()">
         <option value="date">Date &amp; Time</option>
-        <option value="cost_asc">Cost: Low to High</option>
-        <option value="cost_desc">Cost: High to Low</option>
-        <option value="title">Title A–Z</option>
+        <option value="cost">Cost</option>
+        <option value="title">Title</option>
         <option value="duration">Duration</option>
+        <option value="type">Type</option>
+        <option value="tickets">Tickets</option>
       </select>
       <span style="margin-left:auto;display:flex;align-items:center;gap:7px">
-      <label>Per page</label>
-      <div class="seg-group" id="pageSizeSeg">
-        <button class="seg-btn active" onclick="setPageSize(50,this)">50</button>
-        <button class="seg-btn" onclick="setPageSize(100,this)">100</button>
-        <button class="seg-btn" onclick="setPageSize(2000,this)">2000</button>
-        <button class="seg-btn" onclick="setPageSize(Infinity,this)">All</button>
-      </div>
-    </span>
+        <label>Per page</label>
+        <div class="seg-group" id="pageSizeSeg">
+          <button class="seg-btn active" onclick="setPageSize(50,this)">50</button>
+          <button class="seg-btn" onclick="setPageSize(100,this)">100</button>
+          <button class="seg-btn" onclick="setPageSize(2000,this)">2000</button>
+          <button class="seg-btn" onclick="setPageSize(Infinity,this)">All</button>
+        </div>
+      </span>
     </div>
+
     <div class="table-wrap">
       <table>
         <thead>
         <tr>
-          <th onclick="setSort('title')">Title</th>
-          <th onclick="setSort('date')">Date &amp; Time</th>
-          <th onclick="setSort('type')">Type</th>
-          <th onclick="setSort('cost_asc')">Cost</th>
-          <th onclick="setSort('duration')">Duration</th>
-          <th onclick="setSort('tickets')">Tickets</th>
+          <th data-col="title" onclick="setSort('title')">Title <span class="sort-arrow"></span></th>
+          <th data-col="date" onclick="setSort('date')">Date &amp; Time <span class="sort-arrow"></span></th>
+          <th data-col="type" onclick="setSort('type')">Type <span class="sort-arrow"></span></th>
+          <th data-col="cost" onclick="setSort('cost')">Cost <span class="sort-arrow"></span></th>
+          <th data-col="duration" onclick="setSort('duration')">Duration <span class="sort-arrow"></span></th>
+          <th data-col="tickets" onclick="setSort('tickets')">Tickets <span class="sort-arrow"></span></th>
         </tr>
         </thead>
         <tbody id="tableBody"></tbody>
       </table>
       <div class="no-results" id="noResults" style="display:none">No events match your filters.</div>
     </div>
+
     <div class="pagination" id="pagination"></div>
   </main>
 </div>
@@ -106,118 +109,189 @@
 </div>
 
 <script>
-
+  // ─── Data ─────────────────────────────────────────────────────────────────────
   let ALL_EVENTS = [];
 
   async function loadEvents() {
     try {
       const res = await fetch('./all_events.json');
       ALL_EVENTS = await res.json();
-
-      initializeApp(); // start your app AFTER data loads
+      initializeApp();
     } catch (err) {
       console.error('Failed to load events:', err);
     }
   }
 
+  // ─── Constants ────────────────────────────────────────────────────────────────
   const DAY_LABELS = {
     "2026-07-29": "Wed Jul 29",
     "2026-07-30": "Thu Jul 30",
     "2026-07-31": "Fri Jul 31",
     "2026-08-01": "Sat Aug 1",
-    "2026-08-02": "Sun Aug 2",
-    "2026-08-07": "Fri Aug 7"
+    "2026-08-02": "Sun Aug 2"
   };
-  const ALL_TYPES = ["BGM - Board Game", "CGM - Non-Collectible / Tradable Card Game", "EGM - Electronic Games", "ENT - Entertainment Events", "ESC - Escape Rooms", "FLM - Film Festival", "HMN - Historical Miniatures", "KID - Kids Activities", "LRP - LARP", "MHE - Miniature Hobby Events", "NMN - Non-Historical Miniatures", "RPG - Roleplaying Game", "SEM - Seminar", "SPA - Supplemental Activities", "TCG - Tradable Card Game", "TDA - True Dungeon Adventures!", "TRD - Trade Day Events", "WKS - Workshop", "ZED - Isle of Misfit Events"];
+
+  const ALL_TYPES = [
+    "BGM - Board Game", "CGM - Non-Collectible / Tradable Card Game",
+    "EGM - Electronic Games", "ENT - Entertainment Events", "ESC - Escape Rooms",
+    "FLM - Film Festival", "HMN - Historical Miniatures", "KID - Kids Activities",
+    "LRP - LARP", "MHE - Miniature Hobby Events", "NMN - Non-Historical Miniatures",
+    "RPG - Roleplaying Game", "SEM - Seminar", "SPA - Supplemental Activities",
+    "TCG - Tradable Card Game", "TDA - True Dungeon Adventures!",
+    "TRD - Trade Day Event", "TRD - Trade Day Events",
+    "WKS - Workshop", "ZED - Isle of Misfit Events"
+  ];
 
   const EXP_MAP = {
     "None (You've never played before - rules will be taught)": "Beginner friendly",
     "Some (You've played it a bit and understand the basics)": "Some experience",
-    "Extensive (You've played this game many times)": "Extensive experience"
+    "Expert (You play it regularly and know all the rules)": "Expert"
   };
+
+  const TAG_CODE_MAP = {
+    rpg: 'tag-rpg', bgm: 'tag-bgm', wks: 'tag-wks',
+    mhe: 'tag-mhe', nmn: 'tag-nmn', cgm: 'tag-cgm', egm: 'tag-egm'
+  };
+
+  // ─── DOM cache (populated in cacheDOM after DOMContentLoaded) ─────────────────
+  // [3] All filter-related DOM nodes are looked up once and reused.
+  const DOM = {};
+
+  function cacheDOM() {
+    DOM.searchBox = document.getElementById('searchBox');
+    DOM.costSlider = document.getElementById('costSlider');
+    DOM.costLabel = document.getElementById('costLabel');
+    DOM.ticketsSlider = document.getElementById('ticketsSlider');
+    DOM.ticketsLabel = document.getElementById('ticketsLabel');
+    DOM.dayFilters = document.getElementById('dayFilters');
+    DOM.typeFilters = document.getElementById('typeFilters');
+    DOM.expFilters = document.getElementById('expFilters');
+    DOM.ageFilters = document.getElementById('ageFilters');
+    DOM.sortBy = document.getElementById('sortBy');
+    DOM.tableWrap = document.querySelector('.table-wrap');
+    DOM.tableBody = document.getElementById('tableBody');
+    DOM.noResults = document.getElementById('noResults');
+    DOM.resultCount = document.getElementById('resultCount');
+    DOM.pagination = document.getElementById('pagination');
+    DOM.detailOverlay = document.getElementById('detailOverlay');
+    DOM.detailContent = document.getElementById('detailContent');
+  }
+
+  // ─── Per-event precomputation ─────────────────────────────────────────────────
+  // [1] Run once after JSON loads. Avoids recomputing strings/lookups on every
+  //     filter or render call.
+  function precomputeEvent(e, i) {
+    // Store absolute index so showDetail() can reach ALL_EVENTS directly.
+    e._idx = i;
+
+    // Search haystack — built once, reused on every keypress.
+    e._hay = (e.title + ' ' + (e.system || '') + ' ' + (e.gm || '') + ' ' + (e.desc || '')).toLowerCase();
+
+    // Resolved day label.
+    e._dayLabel = DAY_LABELS[e.date] || e.date;
+
+    // Tag class + short code.
+    const code = e.type.split(' - ')[0].toLowerCase();
+    const tagClass = 'tag ' + (TAG_CODE_MAP[code] || 'tag-default');
+    const shortT = e.type.split(' - ')[0];
+
+    // Cost badge.
+    const costStr = e.cost === 0
+            ? '<span class="cost-free">Free</span>'
+            : `<span class="cost-paid">$${e.cost}</span>`;
+
+    // Duration string.
+    const durStr = e.duration_h ? e.duration_h + 'h' : '—';
+
+    // Ticket badge.
+    let tixStr;
+    if (e.tickets === 0) tixStr = '<span class="tickets-none">Sold out</span>';
+    else if (e.tickets <= 3) tixStr = `<span class="tickets-low">${e.tickets} left</span>`;
+    else tixStr = `<span class="tickets-ok">${e.tickets}</span>`;
+
+    // Pre-built table row cells (static HTML, no re-compute needed during renders).
+    e._rowHtml =
+            `<td class="td-title">${e.title}<small>${e.system || ''}</small></td>` +
+            `<td class="time-cell">${e._dayLabel}<br/><span style="color:var(--text4);font-size:11px">${e.start_time}–${e.end_time}</span></td>` +
+            `<td class="td-type"><span class="tag-wrap"><span class="${tagClass}">${shortT}</span><span class="tag-tip">${e.type}</span></span></td>` +
+            `<td>${costStr}</td>` +
+            `<td>${durStr}</td>` +
+            `<td>${tixStr}</td>`;
+  }
+
+  // ─── State ────────────────────────────────────────────────────────────────────
   let pageSize = 50;
   let filtered = [];
   let page = 1;
-  let sortKey = 'date';
+  let sortCol = 'date';
+  let sortDir = 'asc';   // 'asc' | 'desc'
   let debounceTimer;
 
-  function getTagClass(type) {
-    const code = type.split(' - ')[0].toLowerCase();
-    const map = {
-      rpg: 'tag-rpg',
-      bgm: 'tag-bgm',
-      wks: 'tag-wks',
-      mhe: 'tag-mhe',
-      nmn: 'tag-nmn',
-      cgm: 'tag-cgm',
-      egm: 'tag-egm'
-    };
-    return 'tag ' + (map[code] || 'tag-default');
-  }
+  // ─── Virtual scroll ───────────────────────────────────────────────────────────
+  const VS_ROW_H = 52;   // px — must match the CSS `height` on tbody tr
+  const VS_OVERSCAN = 15;   // rows rendered above/below the visible window
+  const VS_THRESHOLD = 500; // engage virtual scroll above this many rendered rows
 
-  function shortType(type) {
-    return type.split(' - ')[0];
-  }
+  let vsActive = false;
+  let vsRAFPending = false;
 
+  // Default direction for each column on first click.
+  const SORT_DEFAULT_DIR = {
+    date: 'asc', title: 'asc', type: 'asc',
+    cost: 'asc', duration: 'desc', tickets: 'desc'
+  };
+
+  // ─── Filter UI builders ───────────────────────────────────────────────────────
   function buildDayFilters() {
-    const cont = document.getElementById('dayFilters');
     const dates = [...new Set(ALL_EVENTS.map(e => e.date))].sort();
-    cont.innerHTML = dates.map(d => `
-    <label class="type-item" id="daybtn-${d}">
-      <input type="checkbox" value="${d}" checked onchange="toggleDay('${d}',this.checked)"/>
-      ${DAY_LABELS[d] || d}
-    </label>
-  `).join('');
+    DOM.dayFilters.innerHTML = dates.map(d =>
+            `<label class="type-item" id="daybtn-${d}">` +
+            `<input type="checkbox" value="${d}" checked onchange="toggleDay('${d}')"/>` +
+            `${DAY_LABELS[d] || d}</label>`
+    ).join('');
   }
 
-  function toggleDay(d, checked) {
+  // [7] Removed unused `checked` parameter — applyFilter() reads checkbox state itself.
+  function toggleDay(d) {
     applyFilter();
   }
 
   function buildTypeFilters() {
-    const cont = document.getElementById('typeFilters');
-    cont.innerHTML = ALL_TYPES.map(t => `
-    <label class="type-item">
-      <input type="checkbox" value="${t}" checked onchange="applyFilter()"/>
-      ${t}
-    </label>
-  `).join('');
+    DOM.typeFilters.innerHTML = ALL_TYPES.map(t =>
+            `<label class="type-item"><input type="checkbox" value="${t}" checked onchange="applyFilter()"/>${t}</label>`
+    ).join('');
   }
 
   function allTypes() {
-    document.querySelectorAll('#typeFilters input').forEach(cb => cb.checked = true);
+    DOM.typeFilters.querySelectorAll('input').forEach(cb => cb.checked = true);
     applyFilter();
   }
 
   function clearTypes() {
-    document.querySelectorAll('#typeFilters input').forEach(cb => cb.checked = false);
+    DOM.typeFilters.querySelectorAll('input').forEach(cb => cb.checked = false);
     applyFilter();
   }
 
   function buildExpFilters() {
-    const cont = document.getElementById('expFilters');
-    const exps = ["None (You've never played before - rules will be taught)",
+    const exps = [
+      "None (You've never played before - rules will be taught)",
       "Some (You've played it a bit and understand the basics)",
-      "Extensive (You've played this game many times)"];
-    cont.innerHTML = exps.map(e => `
-    <label class="type-item">
-      <input type="checkbox" value="${e}" checked onchange="applyFilter()"/>
-      <span>${EXP_MAP[e] || e}</span>
-    </label>
-  `).join('');
+      "Expert (You play it regularly and know all the rules)"
+    ];
+    DOM.expFilters.innerHTML = exps.map(e =>
+            `<label class="type-item"><input type="checkbox" value="${e}" checked onchange="applyFilter()"/>` +
+            `<span>${EXP_MAP[e] || e}</span></label>`
+    ).join('');
   }
 
   function buildAgeFilters() {
     const ages = ["kids only (12 and under)", "Everyone (6+)", "Teen (13+)", "Mature (18+)", "21+"];
-    const cont = document.getElementById('ageFilters');
-    cont.innerHTML = ages.map(a => `
-    <label class="type-item">
-      <input type="checkbox" value="${a}" checked onchange="applyFilter()"/>
-      ${a}
-    </label>
-  `).join('');
+    DOM.ageFilters.innerHTML = ages.map(a =>
+            `<label class="type-item"><input type="checkbox" value="${a}" checked onchange="applyFilter()"/>${a}</label>`
+    ).join('');
   }
 
+  // ─── Fuzzy search ─────────────────────────────────────────────────────────────
   function levenshtein(a, b) {
     if (a === b) return 0;
     if (a.length === 0) return b.length;
@@ -262,105 +336,187 @@
     return true;
   }
 
+  // ─── Slider handlers ──────────────────────────────────────────────────────────
+  // [4] Sliders are debounced via debounceFilter() (same timer as the search box).
   function onTickets(val) {
-    document.getElementById('ticketsLabel').textContent = val === 0 ? 'Any' : val + '+'
+    DOM.ticketsLabel.textContent = +val === 0 ? 'Any' : val + '+';
     debounceFilter();
   }
 
   function onCost(val) {
-    document.getElementById('costLabel').textContent = val === 504 ? 'Any' : '$' + val;
+    DOM.costLabel.textContent = +val === 1000 ? 'Any' : '$' + val;
     debounceFilter();
   }
 
+  // ─── Debounce ─────────────────────────────────────────────────────────────────
   function debounceFilter() {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(applyFilter, 250);
   }
 
-  function setSort(key) {
-    document.getElementById('sortBy').value = key;
+  // ─── Sort helpers ─────────────────────────────────────────────────────────────
+  function setSort(col) {
+    if (col === sortCol) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortCol = col;
+      sortDir = SORT_DEFAULT_DIR[col] ?? 'asc';
+    }
+    DOM.sortBy.value = sortCol;
+    updateSortHeaders();
     applyFilter();
   }
 
+  // Called when the user picks from the dropdown — resets direction to default.
+  function onDropdownSort() {
+    sortCol = DOM.sortBy.value;
+    sortDir = SORT_DEFAULT_DIR[sortCol] ?? 'asc';
+    updateSortHeaders();
+    applyFilter();
+  }
+
+  // Stamp ▲/▼ on the active column header, clear the rest.
+  function updateSortHeaders() {
+    document.querySelectorAll('thead th[data-col]').forEach(th => {
+      const arrow = th.querySelector('.sort-arrow');
+      if (th.dataset.col === sortCol) {
+        arrow.textContent = sortDir === 'asc' ? ' ▲' : ' ▼';
+        th.classList.add('sort-active');
+      } else {
+        arrow.textContent = '';
+        th.classList.remove('sort-active');
+      }
+    });
+  }
+
+  // ─── Core filter ─────────────────────────────────────────────────────────────
   function applyFilter() {
-    const q = document.getElementById('searchBox').value.toLowerCase().trim();
+    const q = DOM.searchBox.value.toLowerCase().trim();
     const queryWords = q ? q.split(/\s+/).filter(w => w.length > 1) : [];
-    const maxCost = parseInt(document.getElementById('costSlider').value);
-    const minTickets = parseInt(document.getElementById('ticketsSlider').value);
-    const days = [...document.querySelectorAll('#dayFilters input:checked')].map(cb => cb.value);
-    const types = new Set([...document.querySelectorAll('#typeFilters input:checked')].map(cb => cb.value));
-    const exps = new Set([...document.querySelectorAll('#expFilters input:checked')].map(cb => cb.value));
-    const ages = new Set([...document.querySelectorAll('#ageFilters input:checked')].map(cb => cb.value));
-    sortKey = document.getElementById('sortBy').value;
+    const maxCost = parseInt(DOM.costSlider.value);
+    const minTickets = parseInt(DOM.ticketsSlider.value);
+
+    // [2] days is a Set → O(1) `.has()` instead of O(n) `.includes()`.
+    const days = new Set([...DOM.dayFilters.querySelectorAll('input:checked')].map(cb => cb.value));
+    const types = new Set([...DOM.typeFilters.querySelectorAll('input:checked')].map(cb => cb.value));
+    const exps = new Set([...DOM.expFilters.querySelectorAll('input:checked')].map(cb => cb.value));
+    const ages = new Set([...DOM.ageFilters.querySelectorAll('input:checked')].map(cb => cb.value));
+
 
     filtered = ALL_EVENTS.filter(e => {
-      if (!days.includes(e.date)) return false;
+      if (!days.has(e.date)) return false;
       if (!types.has(e.type)) return false;
       if (e.cost > maxCost) return false;
       if (minTickets > 0 && e.tickets < minTickets) return false;
       if (e.exp && !exps.has(e.exp)) return false;
       if (e.age && !ages.has(e.age)) return false;
-      if (queryWords.length) {
-        const hay = (e.title + ' ' + (e.system || '') + ' ' + (e.gm || '') + ' ' + (e.desc || '')).toLowerCase();
-        if (!fuzzyMatch(hay, queryWords)) return false;
-      }
+      // [1] Use precomputed haystack instead of rebuilding the string here.
+      if (queryWords.length && !fuzzyMatch(e._hay, queryWords)) return false;
       return true;
     });
 
     filtered.sort((a, b) => {
-      if (sortKey === 'date') return (a.date + a.start_time).localeCompare(b.date + b.start_time);
-      if (sortKey === 'cost_asc') return a.cost - b.cost;
-      if (sortKey === 'cost_desc') return b.cost - a.cost;
-      if (sortKey === 'title') return a.title.localeCompare(b.title);
-      if (sortKey === 'duration') return b.duration_h - a.duration_h;
-      return 0;
+      let cmp = 0;
+      if (sortCol === 'date') cmp = (a.date + a.start_time).localeCompare(b.date + b.start_time);
+      else if (sortCol === 'title') cmp = a.title.localeCompare(b.title);
+      else if (sortCol === 'type') cmp = a.type.localeCompare(b.type);
+      else if (sortCol === 'cost') cmp = a.cost - b.cost;
+      else if (sortCol === 'duration') cmp = a.duration_h - b.duration_h;
+      else if (sortCol === 'tickets') cmp = a.tickets - b.tickets;
+      return sortDir === 'asc' ? cmp : -cmp;
     });
 
     page = 1;
     render();
   }
 
+  // ─── Render ───────────────────────────────────────────────────────────────────
   function render() {
     const total = filtered.length;
-    const effectiveSize = isFinite(pageSize) ? pageSize : total;
-    const start = (page - 1) * effectiveSize;
-    const slice = filtered.slice(start, start + effectiveSize);
-    const body = document.getElementById('tableBody');
-    const noRes = document.getElementById('noResults');
-    document.getElementById('resultCount').textContent = total.toLocaleString() + ' events';
+    DOM.resultCount.textContent = total.toLocaleString() + ' events';
 
     if (!total) {
-      body.innerHTML = '';
-      noRes.style.display = 'block';
-      renderPagination(0);
+      DOM.tableBody.innerHTML = '';
+      DOM.noResults.style.display = 'block';
+      DOM.pagination.innerHTML = '';
+      setVirtualScroll(false);
       return;
     }
-    noRes.style.display = 'none';
+    DOM.noResults.style.display = 'none';
 
-    body.innerHTML = slice.map((e, i) => {
-      const dayLabel = DAY_LABELS[e.date] || e.date;
-      const tclass = getTagClass(e.type);
-      const costStr = e.cost === 0 ? '<span class="cost-free">Free</span>' : '<span class="cost-paid">$' + e.cost + '</span>';
-      let tix = '';
-      if (e.tickets === 0) tix = '<span class="tickets-none">Sold out</span>';
-      else if (e.tickets <= 3) tix = '<span class="tickets-low">' + e.tickets + ' left</span>';
-      else tix = '<span class="tickets-ok">' + e.tickets + '</span>';
-      const dur = e.duration_h ? e.duration_h + 'h' : '—';
-      const fullType = e.type;
-      const shortT = shortType(e.type);
-      return `<tr onclick="showDetail(${start + i})" style="cursor:pointer">
-      <td class="td-title">${e.title}<small>${e.system || ''}</small></td>
-      <td class="time-cell">${dayLabel}<br/><span style="color:var(--text4);font-size:11px">${e.start_time}–${e.end_time}</span></td>
-      <td class="td-type"><span class="tag-wrap"><span class="${tclass}">${shortT}</span><span class="tag-tip">${fullType}</span></span></td>
-      <td>${costStr}</td>
-      <td>${dur}</td>
-      <td>${tix}</td>
-    </tr>`;
-    }).join('');
+    // Decide how many rows we'd actually paint in paged mode.
+    const effectiveSize = isFinite(pageSize) ? pageSize : total;
+    const pagedRowCount = isFinite(pageSize) ? Math.min(effectiveSize, total) : total;
+    const useVS = pagedRowCount > VS_THRESHOLD;
 
-    renderPagination(total);
+    setVirtualScroll(useVS);
+
+    if (useVS) {
+      // Reset scroll when the result set changes (new filter / sort).
+      DOM.tableWrap.scrollTop = 0;
+      paintVirtualRows();
+    } else {
+      const start = (page - 1) * effectiveSize;
+      const slice = filtered.slice(start, start + effectiveSize);
+      let html = '';
+      for (let i = 0; i < slice.length; i++) {
+        html += `<tr data-idx="${slice[i]._idx}">${slice[i]._rowHtml}</tr>`;
+      }
+      DOM.tableBody.innerHTML = html;
+      renderPagination(total);
+    }
   }
 
+  // Enable/disable virtual scroll mode on the table-wrap container.
+  function setVirtualScroll(on) {
+    if (on === vsActive) return;
+    vsActive = on;
+    DOM.tableWrap.classList.toggle('vs-active', on);
+    if (on) {
+      DOM.tableWrap.addEventListener('scroll', onVirtualScroll, {passive: true});
+      DOM.pagination.innerHTML = '';
+    } else {
+      DOM.tableWrap.removeEventListener('scroll', onVirtualScroll);
+      DOM.tableWrap.scrollTop = 0;
+    }
+  }
+
+  // RAF-throttled scroll handler — avoids painting more than once per frame.
+  function onVirtualScroll() {
+    if (!vsRAFPending) {
+      vsRAFPending = true;
+      requestAnimationFrame(() => {
+        paintVirtualRows();
+        vsRAFPending = false;
+      });
+    }
+  }
+
+  // Core virtual paint: only renders rows visible in the viewport + overscan.
+  // Spacer <tr>s above and below hold the correct total scroll height.
+  function paintVirtualRows() {
+    const total = filtered.length;
+    const scrollTop = DOM.tableWrap.scrollTop;
+    const viewH = DOM.tableWrap.clientHeight;
+
+    const firstVis = Math.floor(scrollTop / VS_ROW_H);
+    const lastVis = Math.ceil((scrollTop + viewH) / VS_ROW_H);
+    const start = Math.max(0, firstVis - VS_OVERSCAN);
+    const end = Math.min(total - 1, lastVis + VS_OVERSCAN);
+
+    const topPx = start * VS_ROW_H;
+    const bottomPx = Math.max(0, (total - end - 1) * VS_ROW_H);
+
+    let html = `<tr class="v-spacer" style="height:${topPx}px"></tr>`;
+    for (let i = start; i <= end; i++) {
+      html += `<tr data-idx="${filtered[i]._idx}">${filtered[i]._rowHtml}</tr>`;
+    }
+    html += `<tr class="v-spacer" style="height:${bottomPx}px"></tr>`;
+
+    DOM.tableBody.innerHTML = html;
+  }
+
+  // ─── Page size ────────────────────────────────────────────────────────────────
   function setPageSize(n, btn) {
     pageSize = n;
     document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
@@ -369,16 +525,18 @@
     render();
   }
 
+  // ─── Pagination ───────────────────────────────────────────────────────────────
   function renderPagination(total) {
     const effectiveSize = isFinite(pageSize) ? pageSize : total;
     const totalPages = Math.ceil(total / effectiveSize);
-    const cont = document.getElementById('pagination');
     if (totalPages <= 1) {
-      cont.innerHTML = '';
+      DOM.pagination.innerHTML = '';
       return;
     }
+
     const pages = [];
     pages.push(`<button class="page-btn" ${page === 1 ? 'disabled' : ''} onclick="goPage(${page - 1})">← Prev</button>`);
+
     const range = [];
     for (let i = 1; i <= totalPages; i++) {
       if (i === 1 || i === totalPages || Math.abs(i - page) <= 2) range.push(i);
@@ -389,7 +547,8 @@
       else pages.push(`<button class="page-btn ${r === page ? 'active' : ''}" onclick="goPage(${r})">${r}</button>`);
     });
     pages.push(`<button class="page-btn" ${page === totalPages ? 'disabled' : ''} onclick="goPage(${page + 1})">Next →</button>`);
-    cont.innerHTML = pages.join('');
+
+    DOM.pagination.innerHTML = pages.join('');
   }
 
   function goPage(p) {
@@ -398,40 +557,53 @@
     window.scrollTo(0, 0);
   }
 
+  // ─── Detail overlay ───────────────────────────────────────────────────────────
+  // [5] Click is handled by a single delegated listener on tbody (set up in
+  //     initTableDelegation). showDetail() receives the ALL_EVENTS index directly.
   function showDetail(idx) {
-    const e = filtered[idx];
-    const dayLabel = DAY_LABELS[e.date] || e.date;
-    document.getElementById('detailContent').innerHTML = `
-    <p style="font-size:11px;color:var(--text4);margin-bottom:4px">${e.id}</p>
-    <h2 class="detail-title">${e.title}</h2>
-    <p class="detail-meta">${e.type} · ${dayLabel}, ${e.start_time}–${e.end_time}</p>
-    <p class="detail-desc">${e.desc || 'No description available.'}</p>
-    <div class="detail-grid">
-      <div class="detail-field"><label>Cost</label><p>${e.cost === 0 ? 'Free' : '$' + e.cost}</p></div>
-      <div class="detail-field"><label>Duration</label><p>${e.duration_h ? e.duration_h + 'h' : '—'}</p></div>
-      <div class="detail-field"><label>Location</label><p>${[e.location, e.room].filter(Boolean).join(', ') || '—'}</p></div>
-      <div class="detail-field"><label>Tickets Left</label><p>${e.tickets || '—'}</p></div>
-      <div class="detail-field"><label>Players</label><p>${e.min_p}–${e.max_p}</p></div>
-      <div class="detail-field"><label>Age</label><p>${e.age || '—'}</p></div>
-      <div class="detail-field"><label>Experience</label><p>${EXP_MAP[e.exp] || e.exp || '—'}</p></div>
-      <div class="detail-field"><label>Game Master</label><p>${e.gm || '—'}</p></div>
-      ${e.system ? `<div class="detail-field"><label>System</label><p>${e.system}</p></div>` : ''}</div>
-  `;
-    document.getElementById('detailOverlay').classList.add('open');
+    const e = ALL_EVENTS[idx];
+    const dayLabel = e._dayLabel;
+
+    DOM.detailContent.innerHTML =
+            `<p style="font-size:11px;color:var(--text4);margin-bottom:4px">${e.id}</p>` +
+            `<h2 class="detail-title">${e.title}</h2>` +
+            `<p class="detail-meta">${e.type} · ${dayLabel}, ${e.start_time}–${e.end_time}</p>` +
+            `<p class="detail-desc">${e.desc || 'No description available.'}</p>` +
+            `<div class="detail-grid">` +
+            `<div class="detail-field"><label>Cost</label><p>${e.cost === 0 ? 'Free' : '$' + e.cost}</p></div>` +
+            `<div class="detail-field"><label>Duration</label><p>${e.duration_h ? e.duration_h + 'h' : '—'}</p></div>` +
+            `<div class="detail-field"><label>Location</label><p>${[e.location, e.room].filter(Boolean).join(', ') || '—'}</p></div>` +
+            `<div class="detail-field"><label>Tickets Left</label><p>${e.tickets || '—'}</p></div>` +
+            `<div class="detail-field"><label>Players</label><p>${e.min_p}–${e.max_p}</p></div>` +
+            `<div class="detail-field"><label>Age</label><p>${e.age || '—'}</p></div>` +
+            `<div class="detail-field"><label>Experience</label><p>${EXP_MAP[e.exp] || e.exp || '—'}</p></div>` +
+            `<div class="detail-field"><label>Game Master</label><p>${e.gm || '—'}</p></div>` +
+            (e.system ? `<div class="detail-field"><label>System</label><p>${e.system}</p></div>` : '') +
+            `</div>`;
+
+    DOM.detailOverlay.classList.add('open');
+  }
+
+  function initTableDelegation() {
+    DOM.tableBody.addEventListener('click', ev => {
+      const row = ev.target.closest('tr');
+      if (row) showDetail(parseInt(row.dataset.idx, 10));
+    });
   }
 
   function closeDetail(ev) {
-    if (ev.target === document.getElementById('detailOverlay')) closeDetailBtn();
+    if (ev.target === DOM.detailOverlay) closeDetailBtn();
   }
 
   function closeDetailBtn() {
-    document.getElementById('detailOverlay').classList.remove('open');
+    DOM.detailOverlay.classList.remove('open');
   }
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeDetailBtn();
   });
 
+  // ─── Theme ────────────────────────────────────────────────────────────────────
   function toggleTheme() {
     const isDark = document.body.classList.toggle('dark');
     document.getElementById('toggleIcon').textContent = isDark ? '☀️' : '🌙';
@@ -447,12 +619,22 @@
     document.getElementById('toggleLabel').textContent = isDark ? 'Light mode' : 'Dark mode';
   })();
 
+  // ─── Bootstrap ────────────────────────────────────────────────────────────────
   function initializeApp() {
+    // [1] Precompute derived data for every event once, right after JSON loads.
+    ALL_EVENTS.forEach(precomputeEvent);
+
+    // [3] Cache all filter DOM references.
+    cacheDOM();
+
+    // [5] Single delegated click listener on the table body.
+    initTableDelegation();
+
     buildDayFilters();
     buildTypeFilters();
     buildAgeFilters();
     buildExpFilters();
-
+    updateSortHeaders();
     applyFilter();
   }
 

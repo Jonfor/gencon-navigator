@@ -349,6 +349,11 @@ thead th {
     transition: background .1s
 }
 
+thead th[data-col] {
+    cursor: pointer;
+    user-select: none;
+}
+
 thead th:hover {
     background: var(--th-hover)
 }
@@ -363,6 +368,7 @@ tbody tr:last-child {
 }
 
 tbody tr:hover {
+    cursor: pointer;
     background: var(--row-hover)
 }
 
@@ -388,6 +394,34 @@ td {
 
 .td-type {
     white-space: nowrap
+}
+
+#tableBody tr:not(.v-spacer) {
+    cursor: pointer;
+    height: 52px; /* fixed height — required for virtual scroll accuracy */
+    transition: background 0.1s, box-shadow 0.1s;
+}
+
+.v-spacer {
+    pointer-events: none;
+}
+
+.sort-arrow {
+    font-size: 0.75em;
+}
+
+/* Virtual scroll mode — table-wrap becomes the scrolling viewport */
+.table-wrap.vs-active {
+    height: calc(100vh - 210px);
+    overflow-y: auto;
+}
+
+/* Sticky header so columns stay visible while scrolling */
+.table-wrap.vs-active thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bg2, #1e1e2e); /* match your theme bg */
 }
 
 .cost-free {
