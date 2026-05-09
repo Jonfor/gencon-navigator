@@ -354,6 +354,10 @@ thead th[data-col] {
     user-select: none;
 }
 
+thead th.sort-active {
+    color: var(--link);
+}
+
 thead th:hover {
     background: var(--th-hover)
 }
@@ -422,6 +426,59 @@ td {
     top: 0;
     z-index: 2;
     background: var(--bg2, #1e1e2e); /* match your theme bg */
+}
+
+/* ── Mobile filter drawer ───────────────────────────────────────────── */
+#filterToggleBtn {
+    display: none;
+}
+
+/* Applied to aside when JS moves it into <main> on mobile */
+aside.mobile-drawer {
+    display: block;
+    position: static;
+    width: auto;
+    height: auto;
+    max-height: 60vh;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 12px;
+}
+
+@media (max-width: 700px) {
+    #filterToggleBtn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg2);
+        color: var(--text);
+        font-size: 14px;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .filter-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 99px;
+        background: var(--link);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .filter-badge:empty {
+        display: none;
+    }
 }
 
 .cost-free {

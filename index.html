@@ -60,6 +60,9 @@
     </div>
 
     <div class="sort-row">
+      <button id="filterToggleBtn" onclick="toggleMobileFilters()">
+        ⚙ Filters <span class="filter-badge" data-count="0" id="filterBadge"></span>
+      </button>
       <label>Sort by</label>
       <select id="sortBy" onchange="onDropdownSort()">
         <option value="date">Date &amp; Time</option>
@@ -175,6 +178,7 @@
     DOM.pagination = document.getElementById('pagination');
     DOM.detailOverlay = document.getElementById('detailOverlay');
     DOM.detailContent = document.getElementById('detailContent');
+    DOM.filterBadge = document.getElementById('filterBadge');
   }
 
   // ─── Per-event precomputation ─────────────────────────────────────────────────
@@ -427,6 +431,7 @@
     });
 
     page = 1;
+    updateFilterBadge();
     render();
   }
 
@@ -602,6 +607,66 @@
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeDetailBtn();
   });
+
+  // ─── Mobile filters ───────────────────────────────────────────────────────────
+  // We physically relocate the <aside> node rather than cloning it,
+  // so all its event listeners stay intact automatically.
+  let asideOriginalParent = null;
+  let asideNextSibling = null;
+
+  function toggleMobileFilters() {
+    const aside = document.querySelector('aside');
+    const sortRow = document.querySelector('.sort-row');
+    const btn = document.getElementById('filterToggleBtn');
+    const isOpen = aside.classList.toggle('mobile-drawer');
+
+    if (isOpen) {
+      // Remember where aside lives so we can put it back.
+      asideOriginalParent = aside.parentNode;
+      asideNextSibling = aside.nextSibling;
+      // Move it right after the sort row, inside <main>.
+      sortRow.insertAdjacentElement('afterend', aside);
+    } else {
+      // Move it back to its original position in .layout.
+      asideOriginalParent.insertBefore(aside, asideNextSibling);
+    }
+
+    const count = DOM.filterBadge ? DOM.filterBadge.dataset.count : '0';
+    btn.innerHTML =
+            (isOpen ? '✕ Close' : '⚙ Filters') +
+            ` <span class="filter-badge" id="filterBadge" data-count="${count}">${+count > 0 ? count : ''}</span>`;
+    DOM.filterBadge = document.getElementById('filterBadge');
+  }
+
+  // Count how many filters deviate from their all-checked default.
+  function updateFilterBadge() {
+    if (!DOM.filterBadge) return;
+    let active = 0;
+
+    // Unchecked days
+    DOM.dayFilters.querySelectorAll('input').forEach(cb => {
+      if (!cb.checked) active++;
+    });
+    // Unchecked types
+    DOM.typeFilters.querySelectorAll('input').forEach(cb => {
+      if (!cb.checked) active++;
+    });
+    // Unchecked ages
+    DOM.ageFilters.querySelectorAll('input').forEach(cb => {
+      if (!cb.checked) active++;
+    });
+    // Unchecked experience
+    DOM.expFilters.querySelectorAll('input').forEach(cb => {
+      if (!cb.checked) active++;
+    });
+    // Cost slider not at max
+    if (parseInt(DOM.costSlider.value) < 1000) active++;
+    // Tickets slider not at zero
+    if (parseInt(DOM.ticketsSlider.value) > 0) active++;
+
+    DOM.filterBadge.textContent = active || '';
+    DOM.filterBadge.dataset.count = active;
+  }
 
   // ─── Theme ────────────────────────────────────────────────────────────────────
   function toggleTheme() {
