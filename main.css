@@ -277,7 +277,35 @@ input[type=range] {
 }
 
 .search-wrap {
-    margin-bottom: 14px
+    margin-bottom: 14px;
+    position: relative;
+}
+
+.suggestions {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--bg2);
+    border: 1px solid var(--input-border);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .15);
+    list-style: none;
+    z-index: 50;
+    overflow: hidden;
+}
+
+.suggestion-item {
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+}
+
+.suggestion-item:hover,
+.suggestion-item.active {
+    background: var(--type-hover);
+    color: var(--text);
 }
 
 input[type=search] {
@@ -460,7 +488,6 @@ aside.mobile-drawer {
         cursor: pointer;
         white-space: nowrap;
     }
-
     .filter-badge {
         display: inline-flex;
         align-items: center;
