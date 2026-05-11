@@ -573,6 +573,7 @@
             `<p style="font-size:11px;color:var(--text4);margin-bottom:4px">${e.id}</p>` +
             `<h2 class="detail-title">${e.title}</h2>` +
             `<p class="detail-meta">${e.type} · ${dayLabel}, ${e.start_time}–${e.end_time}</p>` +
+            (e.url ? `<a href="${e.url}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-bottom:14px;font-size:13px">View on Gen Con →</a>` : '') +
             `<p class="detail-desc">${e.desc || 'No description available.'}</p>` +
             `<div class="detail-grid">` +
             `<div class="detail-field"><label>Cost</label><p>${e.cost === 0 ? 'Free' : '$' + e.cost}</p></div>` +
