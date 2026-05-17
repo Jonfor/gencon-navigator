@@ -67,6 +67,8 @@ function cacheDOM() {
     DOM.pagination = document.getElementById('pagination');
     DOM.detailOverlay = document.getElementById('detailOverlay');
     DOM.detailContent = document.getElementById('detailContent');
+    DOM.timeFromSlider = document.getElementById('timeFromSlider');
+    DOM.timeFromLabel = document.getElementById('timeFromLabel');
     DOM.filterBadge = document.getElementById('filterBadge');
     DOM.suggestions = document.getElementById('suggestions');
 
@@ -88,14 +90,14 @@ function cacheDOM() {
 // Convert a 12-hour time string like "1:00 PM" or "10:30 AM" to minutes since
 // midnight. Used to build a sortable numeric key so "8:00 AM" < "1:00 PM".
 function timeToMinutes(timeStr) {
-  const m = (timeStr || '').match(/(\d+):(\d+)\s*(AM|PM)/i);
-  if (!m) return 0;
-  let h = parseInt(m[1], 10);
-  const min = parseInt(m[2], 10);
-  const ampm = m[3].toUpperCase();
-  if (ampm === 'PM' && h !== 12) h += 12;
-  if (ampm === 'AM' && h === 12) h = 0;
-  return h * 60 + min;
+    const m = (timeStr || '').match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!m) return 0;
+    let h = parseInt(m[1], 10);
+    const min = parseInt(m[2], 10);
+    const ampm = m[3].toUpperCase();
+    if (ampm === 'PM' && h !== 12) h += 12;
+    if (ampm === 'AM' && h === 12) h = 0;
+    return h * 60 + min;
 }
 
 // [1] Run once after JSON loads. Avoids recomputing strings/lookups on every
@@ -110,9 +112,9 @@ function precomputeEvent(e, i) {
     // Resolved day label.
     e._dayLabel = DAY_LABELS[e.date] || e.date;
 
-  // Numeric sort key: "YYYY-MM-DD" + zero-padded minutes-since-midnight.
-  // Avoids broken lexicographic comparison of 12-hour time strings.
-  e._sortKey = e.date + String(timeToMinutes(e.start_time)).padStart(4, '0');
+    // Numeric sort key: "YYYY-MM-DD" + zero-padded minutes-since-midnight.
+    // Avoids broken lexicographic comparison of 12-hour time strings.
+    e._sortKey = e.date + String(timeToMinutes(e.start_time)).padStart(4, '0');
 
     // Tag class + short code.
     const code = e.type.split(' - ')[0].toLowerCase();
@@ -244,6 +246,22 @@ function onTickets(val) {
 
 function onCost(val) {
     DOM.costLabel.textContent = +val === 1000 ? 'Any' : '$' + val;
+    debounceFilter();
+}
+
+// Convert minutes-since-midnight to a display string e.g. 570 → "9:30 AM".
+function minutesToTime(mins) {
+    mins = parseInt(mins, 10);
+    const h24 = Math.floor(mins / 60);
+    const m = mins % 60;
+    const ampm = h24 < 12 ? 'AM' : 'PM';
+    const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
+    return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+function onTimeFrom(val) {
+    const mins = parseInt(val, 10);
+    DOM.timeFromLabel.textContent = mins === 0 ? 'Any' : minutesToTime(mins);
     debounceFilter();
 }
 
@@ -383,6 +401,7 @@ function applyFilter() {
     const q = DOM.searchBox.value.trim();
     const maxCost = parseInt(DOM.costSlider.value);
     const minTickets = parseInt(DOM.ticketsSlider.value);
+    const timeFrom = parseInt(DOM.timeFromSlider.value);
 
     const days = new Set([...DOM.dayFilters.querySelectorAll('input:checked')].map(cb => cb.value));
     const types = new Set([...DOM.typeFilters.querySelectorAll('input:checked')].map(cb => cb.value));
@@ -415,6 +434,7 @@ function applyFilter() {
         if (!types.has(e.type)) return false;
         if (e.cost > maxCost) return false;
         if (minTickets > 0 && e.tickets < minTickets) return false;
+        if (timeFrom > 0 && timeToMinutes(e.start_time) < timeFrom) return false;
         if (e.exp && !exps.has(e.exp)) return false;
         if (e.age && !ages.has(e.age)) return false;
 
@@ -437,6 +457,7 @@ function applyFilter() {
 
     page = 1;
     updateFilterBadge();
+    pushState();
     render();
 }
 
@@ -669,6 +690,8 @@ function updateFilterBadge() {
     if (parseInt(DOM.costSlider.value) < 1000) active++;
     // Tickets slider not at zero
     if (parseInt(DOM.ticketsSlider.value) > 0) active++;
+    // Time sliders not at defaults
+    if (parseInt(DOM.timeFromSlider.value) > 0) active++;
 
     activeFilterCount = active;
     DOM.filterBadge.textContent = active || '';
@@ -690,6 +713,121 @@ function toggleTheme() {
     document.getElementById('toggleLabel').textContent = isDark ? 'Light mode' : 'Dark mode';
 })();
 
+// ─── URL state sync ───────────────────────────────────────────────────────────
+// Encodes only non-default state so URLs stay short.
+// Uses replaceState so filter changes don't spam the browser history.
+
+function pushState() {
+    const params = new URLSearchParams();
+
+    const q = DOM.searchBox.value.trim();
+    if (q) params.set('q', q);
+
+    if (sortCol !== 'date' || sortDir !== 'asc')
+        params.set('sort', `${sortCol}.${sortDir}`);
+
+    const maxCost = parseInt(DOM.costSlider.value);
+    if (maxCost < 1000) params.set('cost', String(maxCost));
+
+    const minTix = parseInt(DOM.ticketsSlider.value);
+    if (minTix > 0) params.set('tix', String(minTix));
+
+    const timeFrom = parseInt(DOM.timeFromSlider.value);
+    if (timeFrom > 0) params.set('tfrom', String(timeFrom));
+
+    // Encode unchecked values (default is all-checked, so unchecked = deviation).
+    // Use '|' as separator — type names contain commas.
+    const uncheckedDays = [...DOM.dayFilters.querySelectorAll('input:not(:checked)')].map(cb => cb.value);
+    if (uncheckedDays.length) params.set('days', uncheckedDays.join('|'));
+
+    const uncheckedTypes = [...DOM.typeFilters.querySelectorAll('input:not(:checked)')].map(cb => cb.value);
+    if (uncheckedTypes.length) params.set('types', uncheckedTypes.join('|'));
+
+    const uncheckedAges = [...DOM.ageFilters.querySelectorAll('input:not(:checked)')].map(cb => cb.value);
+    if (uncheckedAges.length) params.set('ages', uncheckedAges.join('|'));
+
+    const uncheckedExps = [...DOM.expFilters.querySelectorAll('input:not(:checked)')].map(cb => cb.value);
+    if (uncheckedExps.length) params.set('exps', uncheckedExps.join('|'));
+
+    if (pageSize !== 50)
+        params.set('ps', pageSize === Infinity ? 'all' : String(pageSize));
+
+    const str = params.toString();
+    history.replaceState(null, '', str ? `?${str}` : location.pathname);
+}
+
+function restoreState() {
+    const params = new URLSearchParams(location.search);
+    if (!params.toString()) return;
+
+    if (params.has('q'))
+        DOM.searchBox.value = params.get('q');
+
+    if (params.has('sort')) {
+        const [col, dir] = params.get('sort').split('.');
+        // Ignore a stale 'relevance' sort if there's no query to back it up.
+        if (col && dir && !(col === 'relevance' && !params.has('q'))) {
+            sortCol = col;
+            sortDir = dir;
+        }
+    }
+
+    if (params.has('cost')) {
+        const v = params.get('cost');
+        DOM.costSlider.value = v;
+        DOM.costLabel.textContent = +v === 1000 ? 'Any' : `$${v}`;
+    }
+
+    if (params.has('tix')) {
+        const v = params.get('tix');
+        DOM.ticketsSlider.value = v;
+        DOM.ticketsLabel.textContent = +v === 0 ? 'Any' : `${v}+`;
+    }
+
+    if (params.has('tfrom')) {
+        const v = params.get('tfrom');
+        DOM.timeFromSlider.value = v;
+        DOM.timeFromLabel.textContent = +v === 0 ? 'Any' : minutesToTime(+v);
+    }
+
+    if (params.has('days')) {
+        const unchecked = new Set(params.get('days').split('|'));
+        DOM.dayFilters.querySelectorAll('input').forEach(cb => {
+            cb.checked = !unchecked.has(cb.value);
+        });
+    }
+
+    if (params.has('types')) {
+        const unchecked = new Set(params.get('types').split('|'));
+        DOM.typeFilters.querySelectorAll('input').forEach(cb => {
+            cb.checked = !unchecked.has(cb.value);
+        });
+    }
+
+    if (params.has('ages')) {
+        const unchecked = new Set(params.get('ages').split('|'));
+        DOM.ageFilters.querySelectorAll('input').forEach(cb => {
+            cb.checked = !unchecked.has(cb.value);
+        });
+    }
+
+    if (params.has('exps')) {
+        const unchecked = new Set(params.get('exps').split('|'));
+        DOM.expFilters.querySelectorAll('input').forEach(cb => {
+            cb.checked = !unchecked.has(cb.value);
+        });
+    }
+
+    if (params.has('ps')) {
+        const raw = params.get('ps');
+        pageSize = raw === 'all' ? Infinity : parseInt(raw);
+        document.querySelectorAll('.seg-btn').forEach(btn => {
+            const n = btn.textContent.trim() === 'All' ? Infinity : parseInt(btn.textContent);
+            btn.classList.toggle('active', n === pageSize);
+        });
+    }
+}
+
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 function initializeApp() {
     // [1] Precompute derived data for every event once, right after JSON loads.
@@ -708,6 +846,7 @@ function initializeApp() {
     buildTypeFilters();
     buildAgeFilters();
     buildExpFilters();
+    restoreState();
     updateSortHeaders();
     applyFilter();
 }

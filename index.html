@@ -47,6 +47,13 @@
     </div>
     <div style="font-size:11px;color:var(--text4);margin-top:4px">Min tickets available</div>
 
+    <div class="section-label" style="margin-top:16px">Start Time</div>
+    <div class="cost-row">
+      <input id="timeFromSlider" max="1410" min="0" oninput="onTimeFrom(this.value)" step="30" type="range" value="0"/>
+      <span class="cost-val" id="timeFromLabel">Any</span>
+    </div>
+    <div style="font-size:11px;color:var(--text4);margin-top:4px">Show events starting at or after this time</div>
+
     <div class="section-label" style="margin-top:16px">Age Group</div>
     <div class="type-list" id="ageFilters"></div>
 
@@ -58,7 +65,7 @@
     <div class="search-wrap">
       <input autocomplete="off" id="searchBox"
              oninput="debounceSearch()"
-             placeholder="Search by title, game system, GM..." type="search"/>
+             placeholder="Search by title, game system, GM, description…" type="search"/>
       <ul class="suggestions" id="suggestions" style="display:none"></ul>
     </div>
 
