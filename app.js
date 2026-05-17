@@ -42,6 +42,28 @@ const TAG_CODE_MAP = {
     mhe: 'tag-mhe', nmn: 'tag-nmn', cgm: 'tag-cgm', egm: 'tag-egm'
 };
 
+// ─── URL index maps ───────────────────────────────────────────────────────────
+// Each filter value maps to a short integer for compact URLs.
+// The index position IS the number — never reorder these arrays.
+const URL_DAYS = Object.keys(DAY_LABELS);          // 0=Wed,1=Thu,2=Fri,3=Sat,4=Sun
+const URL_TYPES = ALL_TYPES;                         // 0=BGM,1=CGM,...
+const URL_AGES = ["kids only (12 and under)", "Everyone (6+)", "Teen (13+)", "Mature (18+)", "21+"];
+const URL_EXPS = [
+    "None (You've never played before - rules will be taught)",
+    "Some (You've played it a bit and understand the basics)",
+    "Expert (You play it regularly and know all the rules)"
+];
+
+// Encode an array of unchecked values to a comma-separated string of indices.
+function encodeUnchecked(unchecked, map) {
+    return unchecked.map(v => map.indexOf(v)).filter(i => i !== -1).join(',');
+}
+
+// Decode a comma-separated index string back to a Set of values.
+function decodeUnchecked(str, map) {
+    return new Set(str.split(',').map(n => map[parseInt(n, 10)]).filter(Boolean));
+}
+
 // ─── DOM cache (populated in cacheDOM after DOMContentLoaded) ─────────────────
 // [3] All filter-related DOM nodes are looked up once and reused.
 const DOM = {};
@@ -735,19 +757,17 @@ function pushState() {
     const timeFrom = parseInt(DOM.timeFromSlider.value);
     if (timeFrom > 0) params.set('tfrom', String(timeFrom));
 
-    // Encode unchecked values (default is all-checked, so unchecked = deviation).
-    // Use '|' as separator — type names contain commas.
     const uncheckedDays = [...DOM.dayFilters.querySelectorAll('input:not(:checked)')].map(cb => cb.value);
-    if (uncheckedDays.length) params.set('days', uncheckedDays.join('|'));
+    if (uncheckedDays.length) params.set('days', encodeUnchecked(uncheckedDays, URL_DAYS));
 
     const uncheckedTypes = [...DOM.typeFilters.querySelectorAll('input:not(:checked)')].map(cb => cb.value);
-    if (uncheckedTypes.length) params.set('types', uncheckedTypes.join('|'));
+    if (uncheckedTypes.length) params.set('types', encodeUnchecked(uncheckedTypes, URL_TYPES));
 
     const uncheckedAges = [...DOM.ageFilters.querySelectorAll('input:not(:checked)')].map(cb => cb.value);
-    if (uncheckedAges.length) params.set('ages', uncheckedAges.join('|'));
+    if (uncheckedAges.length) params.set('ages', encodeUnchecked(uncheckedAges, URL_AGES));
 
     const uncheckedExps = [...DOM.expFilters.querySelectorAll('input:not(:checked)')].map(cb => cb.value);
-    if (uncheckedExps.length) params.set('exps', uncheckedExps.join('|'));
+    if (uncheckedExps.length) params.set('exps', encodeUnchecked(uncheckedExps, URL_EXPS));
 
     if (pageSize !== 50)
         params.set('ps', pageSize === Infinity ? 'all' : String(pageSize));
@@ -765,7 +785,6 @@ function restoreState() {
 
     if (params.has('sort')) {
         const [col, dir] = params.get('sort').split('.');
-        // Ignore a stale 'relevance' sort if there's no query to back it up.
         if (col && dir && !(col === 'relevance' && !params.has('q'))) {
             sortCol = col;
             sortDir = dir;
@@ -791,28 +810,28 @@ function restoreState() {
     }
 
     if (params.has('days')) {
-        const unchecked = new Set(params.get('days').split('|'));
+        const unchecked = decodeUnchecked(params.get('days'), URL_DAYS);
         DOM.dayFilters.querySelectorAll('input').forEach(cb => {
             cb.checked = !unchecked.has(cb.value);
         });
     }
 
     if (params.has('types')) {
-        const unchecked = new Set(params.get('types').split('|'));
+        const unchecked = decodeUnchecked(params.get('types'), URL_TYPES);
         DOM.typeFilters.querySelectorAll('input').forEach(cb => {
             cb.checked = !unchecked.has(cb.value);
         });
     }
 
     if (params.has('ages')) {
-        const unchecked = new Set(params.get('ages').split('|'));
+        const unchecked = decodeUnchecked(params.get('ages'), URL_AGES);
         DOM.ageFilters.querySelectorAll('input').forEach(cb => {
             cb.checked = !unchecked.has(cb.value);
         });
     }
 
     if (params.has('exps')) {
-        const unchecked = new Set(params.get('exps').split('|'));
+        const unchecked = decodeUnchecked(params.get('exps'), URL_EXPS);
         DOM.expFilters.querySelectorAll('input').forEach(cb => {
             cb.checked = !unchecked.has(cb.value);
         });
