@@ -85,6 +85,19 @@ function cacheDOM() {
     });
 }
 
+// Convert a 12-hour time string like "1:00 PM" or "10:30 AM" to minutes since
+// midnight. Used to build a sortable numeric key so "8:00 AM" < "1:00 PM".
+function timeToMinutes(timeStr) {
+  const m = (timeStr || '').match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!m) return 0;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  const ampm = m[3].toUpperCase();
+  if (ampm === 'PM' && h !== 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  return h * 60 + min;
+}
+
 // [1] Run once after JSON loads. Avoids recomputing strings/lookups on every
 //     filter or render call.
 function precomputeEvent(e, i) {
@@ -96,6 +109,10 @@ function precomputeEvent(e, i) {
 
     // Resolved day label.
     e._dayLabel = DAY_LABELS[e.date] || e.date;
+
+  // Numeric sort key: "YYYY-MM-DD" + zero-padded minutes-since-midnight.
+  // Avoids broken lexicographic comparison of 12-hour time strings.
+  e._sortKey = e.date + String(timeToMinutes(e.start_time)).padStart(4, '0');
 
     // Tag class + short code.
     const code = e.type.split(' - ')[0].toLowerCase();
@@ -409,7 +426,7 @@ function applyFilter() {
         if (sortCol === 'relevance') {
             // Higher score = better match → descending by default.
             cmp = (searchScores?.get(b._idx) ?? 0) - (searchScores?.get(a._idx) ?? 0);
-        } else if (sortCol === 'date') cmp = (a.date + a.start_time).localeCompare(b.date + b.start_time);
+        } else if (sortCol === 'date') cmp = a._sortKey.localeCompare(b._sortKey);
         else if (sortCol === 'title') cmp = a.title.localeCompare(b.title);
         else if (sortCol === 'type') cmp = a.type.localeCompare(b.type);
         else if (sortCol === 'cost') cmp = a.cost - b.cost;
