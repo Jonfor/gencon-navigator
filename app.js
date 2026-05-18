@@ -93,8 +93,7 @@ function cacheDOM() {
     DOM.searchBox = document.getElementById('searchBox');
     DOM.costSlider = document.getElementById('costSlider');
     DOM.costLabel = document.getElementById('costLabel');
-    DOM.ticketsSlider = document.getElementById('ticketsSlider');
-    DOM.ticketsLabel = document.getElementById('ticketsLabel');
+    DOM.showSoldOut = document.getElementById('showSoldOut');
     DOM.dayFilters = document.getElementById('dayFilters');
     DOM.typeFilters = document.getElementById('typeFilters');
     DOM.expFilters = document.getElementById('expFilters');
@@ -279,11 +278,6 @@ function buildSearchIndex() {
 }
 
 // ─── Slider handlers ──────────────────────────────────────────────────────────
-function onTickets(val) {
-    DOM.ticketsLabel.textContent = +val === 0 ? 'Any' : val + '+';
-    debounceFilter();
-}
-
 function onCost(val) {
     DOM.costLabel.textContent = +val === 1000 ? 'Any' : '$' + val;
     debounceFilter();
@@ -440,7 +434,7 @@ function syncRelevanceOption(hasQuery) {
 function applyFilter() {
     const q = DOM.searchBox.value.trim();
     const maxCost = parseInt(DOM.costSlider.value);
-    const minTickets = parseInt(DOM.ticketsSlider.value);
+    const showSoldOut = DOM.showSoldOut.checked;
     const timeFrom = parseInt(DOM.timeFromSlider.value);
 
     const days = new Set([...DOM.dayFilters.querySelectorAll('input:checked')].map(cb => cb.value));
@@ -473,7 +467,7 @@ function applyFilter() {
         if (!days.has(e.date)) return false;
         if (!types.has(e.type)) return false;
         if (e.cost > maxCost) return false;
-        if (minTickets > 0 && e.tickets < minTickets) return false;
+        if (!showSoldOut && e.tickets === 0) return false;
         if (timeFrom > 0 && timeToMinutes(e.start_time) < timeFrom) return false;
         if (e.exp && !exps.has(e.exp)) return false;
         if (e.age && !ages.has(e.age)) return false;
@@ -729,7 +723,7 @@ function updateFilterBadge() {
     // Cost slider not at max
     if (parseInt(DOM.costSlider.value) < 1000) active++;
     // Tickets slider not at zero
-    if (parseInt(DOM.ticketsSlider.value) > 0) active++;
+    if (!DOM.showSoldOut.checked) active++;
     // Time sliders not at defaults
     if (parseInt(DOM.timeFromSlider.value) > 0) active++;
 
@@ -771,8 +765,7 @@ function pushState() {
     const maxCost = parseInt(DOM.costSlider.value);
     if (maxCost < 1000) params.set('cost', String(maxCost));
 
-    const minTix = parseInt(DOM.ticketsSlider.value);
-    if (minTix > 0) params.set('tix', String(minTix));
+    if (!DOM.showSoldOut.checked) params.set('soldout', 'hide');
 
     const timeFrom = parseInt(DOM.timeFromSlider.value);
     if (timeFrom > 0) params.set('tfrom', String(timeFrom));
@@ -823,11 +816,8 @@ function restoreState() {
         DOM.costLabel.textContent = +v === 1000 ? 'Any' : `$${v}`;
     }
 
-    if (params.has('tix')) {
-        const v = params.get('tix');
-        DOM.ticketsSlider.value = v;
-        DOM.ticketsLabel.textContent = +v === 0 ? 'Any' : `${v}+`;
-    }
+    if (params.has('soldout') && params.get('soldout') === 'hide')
+        DOM.showSoldOut.checked = false;
 
     if (params.has('tfrom')) {
         const v = params.get('tfrom');

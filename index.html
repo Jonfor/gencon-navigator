@@ -40,12 +40,10 @@
     </div>
 
     <div class="section-label" style="margin-top:16px">Availability</div>
-    <div class="cost-row">
-      <input id="ticketsSlider" max="1000" min="0" oninput="onTickets(this.value)" step="1" type="range"
-             value="0"/>
-      <span class="cost-val" id="ticketsLabel">Any</span>
-    </div>
-    <div style="font-size:11px;color:var(--text4);margin-top:4px">Min tickets available</div>
+    <label class="type-item">
+      <input checked id="showSoldOut" onchange="applyFilter()" type="checkbox"/>
+      Show sold out events
+    </label>
 
     <div class="section-label" style="margin-top:16px">Start Time</div>
     <div class="cost-row">
